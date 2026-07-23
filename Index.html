@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FRALEN CRM — Branch Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1B2A6B; --navy-light: #2A3F8F;
+      --accent: #4F6BF0; --accent-soft: #EEF1FE;
+      --gray: #6B7280; --border: #C5D3E8; --red: #EF4444;
+    }
+    body {
+      font-family: 'Inter', sans-serif; background: var(--navy);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: white; border-radius: 16px; padding: 32px;
+      width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .logo { text-align: center; margin-bottom: 6px; }
+    .logo .name {
+      font-family: 'Montserrat', sans-serif; font-size: 24px; font-weight: 900;
+      color: var(--navy); letter-spacing: 3px;
+    }
+    .logo .name span { color: var(--accent); }
+    .logo .tag { text-align: center; font-size: 12.5px; color: var(--gray); margin-bottom: 24px; }
+
+    .mode-switch {
+      display: flex; background: #f0f4f8; border-radius: 10px; padding: 4px; margin-bottom: 20px;
+    }
+    .mode-btn {
+      flex: 1; padding: 8px; border: none; background: none; border-radius: 8px;
+      font-size: 13px; font-weight: 700; color: var(--gray); cursor: pointer;
+    }
+    .mode-btn.active { background: var(--navy); color: white; }
+
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+    .field label { font-size: 12px; font-weight: 600; color: #374151; }
+    .field input {
+      padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: var(--accent); }
+
+    .submit-btn {
+      width: 100%; background: var(--accent); color: white; border: none;
+      border-radius: 10px; padding: 12px; font-size: 14.5px; font-weight: 700;
+      cursor: pointer; margin-top: 6px; transition: background 0.2s;
+    }
+    .submit-btn:hover { background: var(--navy); }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .error-msg {
+      background: #FEE2E2; color: var(--red); font-size: 12.5px; font-weight: 600;
+      padding: 9px 12px; border-radius: 8px; margin-bottom: 14px; display: none;
+    }
+    .hint {
+      font-size: 11.5px; color: var(--gray); text-align: center; margin-top: 16px; line-height: 1.5;
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo"><span class="name">FRAL<span>EN</span> CRM</span></div>
+  <div class="tag">Har branch ka apna alag account &amp; data</div>
+
+  <div class="mode-switch">
+    <button class="mode-btn active" id="btn-login-mode" onclick="window.setMode('login')">Login</button>
+    <button class="mode-btn" id="btn-signup-mode" onclick="window.setMode('signup')">New Branch Sign Up</button>
+  </div>
+
+  <div class="error-msg" id="error-msg"></div>
+
+  <!-- LOGIN -->
+  <div class="panel active" id="panel-login">
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="branch@example.com"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••"/>
+    </div>
+    <button class="submit-btn" id="login-btn" onclick="window.doLogin()">Login</button>
+  </div>
+
+  <!-- SIGN UP -->
+  <div class="panel" id="panel-signup">
+    <div class="field">
+      <label>Branch / Shop Name</label>
+      <input type="text" id="signup-branch" placeholder="e.g. Eye Shades, Sakinaka"/>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="signup-email" placeholder="branch@example.com"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="signup-password" placeholder="Kam se kam 6 characters"/>
+    </div>
+    <button class="submit-btn" id="signup-btn" onclick="window.doSignup()">Create Branch Account</button>
+  </div>
+
+  <div class="hint">Har branch (jaise FRALEN, Eye Shades) apna alag account banaye — har account ka data poori tarah alag aur private rehta hai.</div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const fbApp = initializeApp({
+    apiKey: "AIzaSyBHSFdvPAI1kz91whHbTj0rgUefVhPthLc",
+    authDomain: "loginpage1-16430.firebaseapp.com",
+    projectId: "loginpage1-16430",
+    storageBucket: "loginpage1-16430.firebasestorage.app",
+    messagingSenderId: "438297643443",
+    appId: "1:438297643443:web:a2a75a2873d2746613e3c6"
+  });
+  const auth = getAuth(fbApp);
+  const db = getFirestore(fbApp);
+
+  // If already logged in, skip straight to dashboard
+  onAuthStateChanged(auth, (user) => {
+    if (user) window.location.href = "dashboard.html";
+  });
+
+  function setMode(mode) {
+    document.getElementById('panel-login').classList.toggle('active', mode === 'login');
+    document.getElementById('panel-signup').classList.toggle('active', mode === 'signup');
+    document.getElementById('btn-login-mode').classList.toggle('active', mode === 'login');
+    document.getElementById('btn-signup-mode').classList.toggle('active', mode === 'signup');
+    hideError();
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function hideError() {
+    document.getElementById('error-msg').style.display = 'none';
+  }
+
+  async function doLogin() {
+    hideError();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) { showError('Email aur password dono daalo.'); return; }
+
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true; btn.textContent = 'Logging in...';
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      showError(friendlyError(err.code));
+      btn.disabled = false; btn.textContent = 'Login';
+    }
+  }
+
+  async function doSignup() {
+    hideError();
+    const branchName = document.getElementById('signup-branch').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    if (!branchName) { showError('Branch/Shop ka naam daalo.'); return; }
+    if (!email || !password) { showError('Email aur password dono daalo.'); return; }
+    if (password.length < 6) { showError('Password kam se kam 6 characters ka ho.'); return; }
+
+    const btn = document.getElementById('signup-btn');
+    btn.disabled = true; btn.textContent = 'Creating account...';
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      // This branch's own profile doc — everything else this branch saves
+      // will live under branches/{uid}/... , fully separate from other branches.
+      await setDoc(doc(db, "branches", cred.user.uid), {
+        branchName, ownerEmail: email, createdAt: new Date().toISOString()
+      });
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      showError(friendlyError(err.code));
+      btn.disabled = false; btn.textContent = 'Create Branch Account';
+    }
+  }
+
+  function friendlyError(code) {
+    const map = {
+      'auth/invalid-email': 'Email format sahi nahi hai.',
+      'auth/user-not-found': 'Is email se koi account nahi mila.',
+      'auth/wrong-password': 'Password galat hai.',
+      'auth/invalid-credential': 'Email ya password galat hai.',
+      'auth/email-already-in-use': 'Is email se pehle se account bana hua hai — Login try karo.',
+      'auth/weak-password': 'Password bahut chhota hai (min 6 characters).',
+      'auth/network-request-failed': 'Network issue — internet check karo.'
+    };
+    return map[code] || ('Kuch galat hua: ' + code);
+  }
+
+  window.setMode = setMode;
+  window.doLogin = doLogin;
+  window.doSignup = doSignup;
+</script>
+
+</body>
+</html>
+
